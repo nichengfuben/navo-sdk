@@ -18,6 +18,7 @@ from navo.util import (
     ChannelRole,
     ClientEventType,
     ConversationKind,
+    FriendshipDirection,
     FriendshipStatus,
     Gender,
     MessageKind,
@@ -34,21 +35,19 @@ from navo.util import (
     setup_logging,
     MessageBuilder,
     Attachment,
-    Contact,
-    ContactDetail,
+    BootstrapData,
     Conversation,
     ConversationMember,
     FriendRequest,
-    FriendshipRecord,
+    Friendship,
     Message,
+    Reaction,
     User,
-    UserInfo,
-    UserSettings,
     TokenStore,
     FileUploader,
 )
 
-__version__ = "1.0.1"
+__version__ = "2.0.0"
 __author__ = "navo-sdk"
 __license__ = "MIT"
 
@@ -313,15 +312,15 @@ __all__ = [
     "remove", "aremove", "destroy", "adestroy", "reset",
     # 枚举
     "ChannelRole", "ClientEventType", "ConversationKind",
-    "FriendshipStatus", "Gender",
+    "FriendshipDirection", "FriendshipStatus", "Gender",
     "MessageKind", "PresenceStatus", "ServerEventType",
     # 异常
     "NavoError", "AuthError", "NetworkError", "ValidationError",
     "TimeoutError", "ConfigError",
     # 数据模型
-    "User", "UserInfo", "Message", "Contact", "ContactDetail",
-    "Attachment", "FriendshipRecord", "FriendRequest", "UserSettings",
-    "Conversation", "ConversationMember",
+    "User", "Message", "Attachment", "Reaction",
+    "BootstrapData", "Conversation", "ConversationMember",
+    "Friendship", "FriendRequest",
     # 配置
     "SDKConfig", "EnvManager",
     # 协议

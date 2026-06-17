@@ -1,43 +1,51 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+
+from navo.util.models import Attachment
 
 
 class MessageBuilder:
-    """消息构建器。辅助构造 send_message 的参数。"""
+    """消息构建器。"""
 
-    def __init__(self, receiver_id: int) -> None:
-        self._receiver_id = receiver_id
-        self._content: str = ""
-        self._msg_type: Optional[str] = None
-        self._file_path: Optional[str] = None
+    def __init__(self, conversation_id: str) -> None:
+        self._conversation_id = conversation_id
+        self._kind: Optional[str] = None
+        self._text: str = ""
+        self._attachments: List[Attachment] = []
+        self._card_id: Optional[str] = None
+        self._reply_to_id: Optional[str] = None
 
-    def content(self, text: str) -> "MessageBuilder":
-        """设置文本内容。"""
-        self._content = text
+    def text(self, text: str) -> "MessageBuilder":
+        self._text = text
+        if self._kind is None: self._kind = "text"
         return self
 
-    def msg_type(self, msg_type: str) -> "MessageBuilder":
-        """设置消息类型 (text/image/file)。"""
-        self._msg_type = msg_type
+    def kind(self, kind: str) -> "MessageBuilder":
+        self._kind = kind
         return self
 
-    def file(self, file_path: str) -> "MessageBuilder":
-        """设置文件路径。"""
-        self._file_path = file_path
+    def attachment(self, att: Attachment) -> "MessageBuilder":
+        self._attachments.append(att)
+        return self
+
+    def card(self, card_id: str, card_kind: str = "friendCard") -> "MessageBuilder":
+        self._card_id = card_id
+        self._kind = card_kind
+        return self
+
+    def reply_to(self, message_id: str) -> "MessageBuilder":
+        self._reply_to_id = message_id
         return self
 
     def build(self) -> Dict[str, Any]:
-        """构建 send_message 参数字典。"""
-        result: Dict[str, Any] = {
-            "receiver_id": self._receiver_id,
-            "content": self._content,
-        }
-        if self._msg_type:
-            result["msg_type"] = self._msg_type
-        if self._file_path:
-            result["file_path"] = self._file_path
-        return result
+        payload: Dict[str, Any] = {"conversationId": self._conversation_id}
+        if self._kind: payload["kind"] = self._kind
+        if self._text: payload["text"] = self._text
+        if self._attachments: payload["attachments"] = [a.to_dict() for a in self._attachments]
+        if self._card_id: payload["cardId"] = self._card_id
+        if self._reply_to_id: payload["replyToId"] = self._reply_to_id
+        return payload
 
 
 __all__ = ["MessageBuilder"]

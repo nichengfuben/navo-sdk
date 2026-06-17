@@ -129,7 +129,6 @@ class HTTPTransport:
         path: str,
         file_path: str,
         field_name: str = "file",
-        extra_data: Optional[Dict[str, str]] = None,
     ) -> Any:
         """同步文件上传。"""
         url = self._build_url(path)
@@ -142,7 +141,6 @@ class HTTPTransport:
                 resp = self.session.post(
                     url,
                     files={field_name: f},
-                    data=extra_data,
                     headers=merged_headers,
                     timeout=self._config.timeout * 3,
                     verify=self._config.ssl_verify,
@@ -202,7 +200,6 @@ class HTTPTransport:
         path: str,
         file_path: str,
         field_name: str = "file",
-        extra_data: Optional[Dict[str, str]] = None,
     ) -> Any:
         """异步文件上传。"""
         url = self._build_url(path)
@@ -218,9 +215,6 @@ class HTTPTransport:
                 open(file_path, "rb"),
                 filename=file_path.split("/")[-1].split("\\")[-1],
             )
-            if extra_data:
-                for k, v in extra_data.items():
-                    data.add_field(k, str(v))
             async with session.post(
                 url, data=data, headers=merged_headers, timeout=timeout, ssl=self._config.ssl_verify,
             ) as resp:

@@ -4,7 +4,6 @@ from enum import Enum
 
 
 class PresenceStatus(str, Enum):
-    """在线状态。"""
     ONLINE = "online"
     OFFLINE = "offline"
     AWAY = "away"
@@ -12,42 +11,45 @@ class PresenceStatus(str, Enum):
 
 
 class Gender(str, Enum):
-    """性别。"""
     MALE = "male"
     FEMALE = "female"
-    SECRET = "secret"
-
-
-class MessageKind(str, Enum):
-    """消息类型。"""
-    TEXT = "text"
-    IMAGE = "image"
-    FILE = "file"
-    SYSTEM = "system"
-
-
-class FriendshipStatus(str, Enum):
-    """好友关系状态。"""
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    BLOCKED = "blocked"
+    UNSPECIFIED = "unspecified"
 
 
 class ChannelRole(str, Enum):
-    """群组角色。"""
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"
 
 
+class MessageKind(str, Enum):
+    TEXT = "text"
+    IMAGE = "image"
+    FILE = "file"
+    AI = "ai"
+    FRIEND_CARD = "friendCard"
+    CHANNEL_CARD = "channelCard"
+    SYSTEM = "system"
+
+
 class ConversationKind(str, Enum):
-    """会话类型。"""
     DM = "dm"
     CHANNEL = "channel"
 
 
+class FriendshipStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    BLOCKED = "blocked"
+
+
+class FriendshipDirection(str, Enum):
+    NONE = "none"
+    INCOMING = "incoming"
+    OUTGOING = "outgoing"
+
+
 class ClientEventType(str, Enum):
-    """WebSocket 客户端事件类型。"""
     AUTH = "auth"
     MESSAGE_SEND = "message:send"
     MESSAGE_RECALL = "message:recall"
@@ -60,18 +62,9 @@ class ClientEventType(str, Enum):
 
 
 class ServerEventType(str, Enum):
-    """WebSocket 服务端事件类型。"""
-    FRIEND_REQUEST = "friend_request"
-    FRIEND_ACCEPTED = "friend_accepted"
-    FRIEND_ACCEPTED_SELF = "friend_accepted_self"
-    FRIEND_UPDATED = "friend_updated"
-    FRIEND_REMOVED = "friend_removed"
-    NEW_MESSAGE = "new_message"
-    MESSAGE_SENT = "message_sent"
-    MESSAGES_READ = "messages_read"
-    MESSAGE_RECALLED = "message_recalled"
     READY = "ready"
     ERROR = "error"
+    MESSAGE_NEW = "message:new"
     MESSAGE_UPDATE = "message:update"
     TYPING = "typing"
     PRESENCE = "presence"
@@ -81,15 +74,13 @@ class ServerEventType(str, Enum):
     CONVERSATION_REMOVE = "conversation:remove"
     HISTORY_CLEARED = "history:cleared"
     READ = "read"
+    FRIEND_REQUEST = "friend:request"
+    FRIEND_UPDATE = "friend:update"
+    FRIEND_REMOVE = "friend:remove"
 
 
 __all__ = [
-    "PresenceStatus",
-    "Gender",
-    "MessageKind",
-    "FriendshipStatus",
-    "ChannelRole",
-    "ConversationKind",
-    "ClientEventType",
-    "ServerEventType",
+    "PresenceStatus", "Gender", "ChannelRole", "MessageKind",
+    "ConversationKind", "FriendshipStatus", "FriendshipDirection",
+    "ClientEventType", "ServerEventType",
 ]
