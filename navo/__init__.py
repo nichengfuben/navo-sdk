@@ -15,6 +15,9 @@ from navo.util import (
     async_require_login,
     auto_retry,
     validate_params,
+    ChannelRole,
+    ClientEventType,
+    ConversationKind,
     FriendshipStatus,
     Gender,
     MessageKind,
@@ -33,6 +36,8 @@ from navo.util import (
     Attachment,
     Contact,
     ContactDetail,
+    Conversation,
+    ConversationMember,
     FriendRequest,
     FriendshipRecord,
     Message,
@@ -307,6 +312,7 @@ __all__ = [
     "list_instances", "has", "is_initialized", "current_name",
     "remove", "aremove", "destroy", "adestroy", "reset",
     # 枚举
+    "ChannelRole", "ClientEventType", "ConversationKind",
     "FriendshipStatus", "Gender",
     "MessageKind", "PresenceStatus", "ServerEventType",
     # 异常
@@ -315,6 +321,7 @@ __all__ = [
     # 数据模型
     "User", "UserInfo", "Message", "Contact", "ContactDetail",
     "Attachment", "FriendshipRecord", "FriendRequest", "UserSettings",
+    "Conversation", "ConversationMember",
     # 配置
     "SDKConfig", "EnvManager",
     # 协议

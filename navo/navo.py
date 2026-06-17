@@ -12,8 +12,10 @@ from navo.util.events import EventEmitter
 from navo.util.exceptions import AuthError, NavoError
 from navo.util.logging_util import setup_logging
 from navo.util.models import (
+    Attachment,
     Contact,
     ContactDetail,
+    Conversation,
     FriendRequest,
     Message,
     User,
@@ -22,6 +24,7 @@ from navo.util.models import (
 from navo.util.protocols import TokenStore
 from navo.util.transport_http import HTTPTransport
 from navo.util.transport_ws import WebSocketTransport
+from navo.util.uploader import FileUploader
 
 _logger = logging.getLogger("navo")
 
@@ -69,6 +72,9 @@ class Navo:
 
         self._ws = WebSocketTransport(self._config)
         self._container.register_singleton("ws", self._ws)
+
+        self._uploader = FileUploader(self._http)
+        self._container.register_singleton("uploader", self._uploader)
 
         self._logger = setup_logging(
             level=self._config.log_level,
@@ -122,6 +128,10 @@ class Navo:
     @property
     def ws(self) -> WebSocketTransport:
         return self._ws
+
+    @property
+    def uploader(self) -> FileUploader:
+        return self._uploader
 
     @property
     def container(self) -> Container:
@@ -207,6 +217,81 @@ class Navo:
     async def stop_listening(self) -> None:
         """停止后台监听。"""
         await self._ws.stop()
+
+    # ======================================================================
+    # WebSocket 消息发送
+    # ======================================================================
+
+    async def ws_auth(self, token: Optional[str] = None) -> None:
+        """WebSocket 认证。"""
+        t = token
+        if t is None and hasattr(self._token_store, 'get_access_token'):
+            t = self._token_store.get_access_token()
+        if not t:
+            t = self._token_store.get_token()
+        if not t:
+            raise AuthError("请先登录")
+        await self._ws.start(t)
+
+    async def ws_send_message(
+        self,
+        conversation_id: str,
+        text: str = "",
+        kind: Optional[str] = None,
+        attachments: Optional[List[Attachment]] = None,
+        card_id: Optional[str] = None,
+        reply_to_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+    ) -> None:
+        """通过 WebSocket 发送消息。"""
+        payload: Dict[str, Any] = {"conversationId": conversation_id}
+        if kind:
+            payload["kind"] = kind
+        if text:
+            payload["text"] = text
+        if attachments:
+            payload["attachments"] = [a.to_dict() for a in attachments]
+        if card_id:
+            payload["cardId"] = card_id
+        if reply_to_id:
+            payload["replyToId"] = reply_to_id
+        event: Dict[str, Any] = {
+            "type": "message:send",
+            "payload": payload,
+        }
+        if client_id:
+            event["clientId"] = client_id
+        await self._ws.send(event)
+
+    async def ws_recall_message(self, message_id: str) -> None:
+        """撤回消息。"""
+        await self._ws.send({"type": "message:recall", "messageId": message_id})
+
+    async def ws_edit_message(self, message_id: str, text: str) -> None:
+        """编辑消息。"""
+        await self._ws.send({"type": "message:edit", "messageId": message_id, "text": text})
+
+    async def ws_typing_start(self, conversation_id: str) -> None:
+        """开始输入。"""
+        await self._ws.send({"type": "typing:start", "conversationId": conversation_id})
+
+    async def ws_typing_stop(self, conversation_id: str) -> None:
+        """停止输入。"""
+        await self._ws.send({"type": "typing:stop", "conversationId": conversation_id})
+
+    async def ws_set_presence(self, status: str) -> None:
+        """设置在线状态。"""
+        await self._ws.send({"type": "presence:set", "status": status})
+
+    async def ws_toggle_reaction(self, message_id: str, emoji: str) -> None:
+        """切换表情回应。"""
+        await self._ws.send({"type": "reaction:toggle", "messageId": message_id, "emoji": emoji})
+
+    async def ws_mark_read(self, conversation_id: str, message_id: str) -> None:
+        """标记已读。"""
+        await self._ws.send({
+            "type": "read", "conversationId": conversation_id, "messageId": message_id,
+        })
 
     # ======================================================================
     # 认证
@@ -537,6 +622,214 @@ class Navo:
         """异步获取联系人详情。"""
         data = await self._http.arequest("GET", f"/api/contacts/{user_id}")
         return ContactDetail.from_dict(data)
+
+    # ======================================================================
+    # 群组/频道管理
+    # ======================================================================
+
+    @require_login
+    def get_conversations(self) -> List[Conversation]:
+        """获取会话列表。"""
+        data = self._http.request("GET", "/api/conversations")
+        return [Conversation.from_dict(c) for c in data]
+
+    @async_require_login
+    async def aget_conversations(self) -> List[Conversation]:
+        """异步获取会话列表。"""
+        data = await self._http.arequest("GET", "/api/conversations")
+        return [Conversation.from_dict(c) for c in data]
+
+    @require_login
+    def create_channel(
+        self,
+        name: str,
+        topic: Optional[str] = None,
+        is_private: Optional[bool] = None,
+        icon: Optional[str] = None,
+        member_ids: Optional[List[str]] = None,
+    ) -> Conversation:
+        """创建群组。"""
+        body: Dict[str, Any] = {"name": name}
+        if topic is not None:
+            body["topic"] = topic
+        if is_private is not None:
+            body["isPrivate"] = is_private
+        if icon is not None:
+            body["icon"] = icon
+        if member_ids is not None:
+            body["memberIds"] = member_ids
+        data = self._http.request("POST", "/api/channels", json_data=body)
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def acreate_channel(
+        self,
+        name: str,
+        topic: Optional[str] = None,
+        is_private: Optional[bool] = None,
+        icon: Optional[str] = None,
+        member_ids: Optional[List[str]] = None,
+    ) -> Conversation:
+        """异步创建群组。"""
+        body: Dict[str, Any] = {"name": name}
+        if topic is not None:
+            body["topic"] = topic
+        if is_private is not None:
+            body["isPrivate"] = is_private
+        if icon is not None:
+            body["icon"] = icon
+        if member_ids is not None:
+            body["memberIds"] = member_ids
+        data = await self._http.arequest("POST", "/api/channels", json_data=body)
+        return Conversation.from_dict(data)
+
+    @require_login
+    def update_channel(
+        self,
+        channel_id: str,
+        name: Optional[str] = None,
+        topic: Optional[str] = None,
+        announcement: Optional[str] = None,
+        icon: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+        mute_all: Optional[bool] = None,
+    ) -> Conversation:
+        """更新群组信息。"""
+        patch: Dict[str, Any] = {}
+        if name is not None:
+            patch["name"] = name
+        if topic is not None:
+            patch["topic"] = topic
+        if announcement is not None:
+            patch["announcement"] = announcement
+        if icon is not None:
+            patch["icon"] = icon
+        if avatar_url is not None:
+            patch["avatarUrl"] = avatar_url
+        if mute_all is not None:
+            patch["muteAll"] = mute_all
+        data = self._http.request("PATCH", f"/api/channels/{channel_id}", json_data=patch)
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def aupdate_channel(
+        self,
+        channel_id: str,
+        name: Optional[str] = None,
+        topic: Optional[str] = None,
+        announcement: Optional[str] = None,
+        icon: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+        mute_all: Optional[bool] = None,
+    ) -> Conversation:
+        """异步更新群组信息。"""
+        patch: Dict[str, Any] = {}
+        if name is not None:
+            patch["name"] = name
+        if topic is not None:
+            patch["topic"] = topic
+        if announcement is not None:
+            patch["announcement"] = announcement
+        if icon is not None:
+            patch["icon"] = icon
+        if avatar_url is not None:
+            patch["avatarUrl"] = avatar_url
+        if mute_all is not None:
+            patch["muteAll"] = mute_all
+        data = await self._http.arequest("PATCH", f"/api/channels/{channel_id}", json_data=patch)
+        return Conversation.from_dict(data)
+
+    @require_login
+    def create_dm(self, user_id: str) -> Conversation:
+        """创建或获取私聊会话。"""
+        data = self._http.request("POST", "/api/dms", json_data={"userId": user_id})
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def acreate_dm(self, user_id: str) -> Conversation:
+        """异步创建或获取私聊会话。"""
+        data = await self._http.arequest("POST", "/api/dms", json_data={"userId": user_id})
+        return Conversation.from_dict(data)
+
+    # ======================================================================
+    # 群组成员管理
+    # ======================================================================
+
+    @require_login
+    def add_member(self, channel_id: str, user_id: str) -> Conversation:
+        """添加群成员。"""
+        data = self._http.request("POST", f"/api/channels/{channel_id}/members", json_data={
+            "userId": user_id,
+        })
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def aadd_member(self, channel_id: str, user_id: str) -> Conversation:
+        """异步添加群成员。"""
+        data = await self._http.arequest("POST", f"/api/channels/{channel_id}/members", json_data={
+            "userId": user_id,
+        })
+        return Conversation.from_dict(data)
+
+    @require_login
+    def remove_member(self, channel_id: str, user_id: str) -> Conversation:
+        """移除群成员。"""
+        data = self._http.request("DELETE", f"/api/channels/{channel_id}/members/{user_id}")
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def aremove_member(self, channel_id: str, user_id: str) -> Conversation:
+        """异步移除群成员。"""
+        data = await self._http.arequest("DELETE", f"/api/channels/{channel_id}/members/{user_id}")
+        return Conversation.from_dict(data)
+
+    @require_login
+    def set_role(self, channel_id: str, user_id: str, role: str) -> Conversation:
+        """设置成员角色（admin/member）。"""
+        data = self._http.request("POST", f"/api/channels/{channel_id}/role", json_data={
+            "userId": user_id, "role": role,
+        })
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def aset_role(self, channel_id: str, user_id: str, role: str) -> Conversation:
+        """异步设置成员角色。"""
+        data = await self._http.arequest("POST", f"/api/channels/{channel_id}/role", json_data={
+            "userId": user_id, "role": role,
+        })
+        return Conversation.from_dict(data)
+
+    @require_login
+    def set_muted(self, channel_id: str, user_id: str, muted: bool) -> Conversation:
+        """设置成员禁言。"""
+        data = self._http.request("POST", f"/api/channels/{channel_id}/mute", json_data={
+            "userId": user_id, "muted": muted,
+        })
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def aset_muted(self, channel_id: str, user_id: str, muted: bool) -> Conversation:
+        """异步设置成员禁言。"""
+        data = await self._http.arequest("POST", f"/api/channels/{channel_id}/mute", json_data={
+            "userId": user_id, "muted": muted,
+        })
+        return Conversation.from_dict(data)
+
+    @require_login
+    def set_banned(self, channel_id: str, user_id: str, banned: bool) -> Conversation:
+        """设置成员封禁。"""
+        data = self._http.request("POST", f"/api/channels/{channel_id}/ban", json_data={
+            "userId": user_id, "banned": banned,
+        })
+        return Conversation.from_dict(data)
+
+    @async_require_login
+    async def aset_banned(self, channel_id: str, user_id: str, banned: bool) -> Conversation:
+        """异步设置成员封禁。"""
+        data = await self._http.arequest("POST", f"/api/channels/{channel_id}/ban", json_data={
+            "userId": user_id, "banned": banned,
+        })
+        return Conversation.from_dict(data)
 
     # ======================================================================
     # 消息
