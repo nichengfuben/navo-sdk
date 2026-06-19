@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import multiprocessing
 import shutil
 import subprocess
 import time
@@ -139,10 +140,15 @@ def _solve_python(pow_url: str, workers: int) -> Optional[str]:
     t0 = time.monotonic()
     solutions = [0] * c_count
 
-    with ProcessPoolExecutor(max_workers=workers) as pool:
+    # On Windows, freeze_support() is needed so that frozen executables (and
+    # spawn-based child processes) do not re-run the top-level import block.
+    multiprocessing.freeze_support()
+
+    executor = ProcessPoolExecutor(max_workers=workers)
+    try:
         future_to_idx = {}
         for idx, chal in enumerate(challenges):
-            fut = pool.submit(_solve_worker, chal)
+            fut = executor.submit(_solve_worker, chal)
             future_to_idx[fut] = idx
 
         solved = 0
@@ -152,6 +158,23 @@ def _solve_python(pow_url: str, workers: int) -> Optional[str]:
             solved += 1
             if solved % 10 == 0 or solved == c_count:
                 _logger.debug("Solved %d/%d", solved, c_count)
+    except KeyboardInterrupt:
+        # Cancel pending futures and stop waiting for results immediately.
+        executor.shutdown(wait=False, cancel_futures=True)
+        # On Windows (spawn start method), child processes re-import the
+        # main module.  If they receive SIGINT during import they emit
+        # massive traceback spam.  Force-terminate every active child.
+        for child in multiprocessing.active_children():
+            try:
+                child.terminate()
+            except Exception:
+                pass
+        raise
+    except Exception:
+        executor.shutdown(wait=False)
+        raise
+    else:
+        executor.shutdown(wait=True)
 
     elapsed = time.monotonic() - t0
     _logger.debug("All challenges solved in %.1fs", elapsed)
@@ -391,6 +414,8 @@ def solve_captcha_wasm_sync(pow_url: str) -> str:
             timeout=120,
             cwd=str(_CACHE_DIR),
         )
+    except KeyboardInterrupt:
+        raise  # User is shutting down, don't fall back or wrap
     except subprocess.TimeoutExpired:
         raise RuntimeError("WASM solver timed out after 120 seconds")
 
@@ -445,6 +470,8 @@ def solve_captcha_sync(pow_url: str, workers: Optional[int] = None) -> str:
         if result:
             return result
         _logger.info("Python solver returned None, falling back to WASM...")
+    except KeyboardInterrupt:
+        raise  # User is shutting down, don't fall back to WASM
     except Exception as exc:
         _logger.warning("Python solver failed: %s, falling back to WASM...", exc)
 

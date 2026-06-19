@@ -242,6 +242,7 @@ class HTTPTransport:
         if self._async_session is not None and not self._async_session.closed:
             await self._async_session.close()
             self._async_session = None
+        self.close()  # also close sync requests.Session
 
 
 __all__ = ["HTTPTransport"]
