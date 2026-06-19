@@ -18,6 +18,7 @@ class SDKConfig:
 
     base_url: str = "https://navo.airoe.cn"
     ws_url: str = "wss://navo.airoe.cn/ws"
+    pow_url: str = "https://pow.airoe.cn"
 
     timeout: int = 30
     max_retries: int = 3
@@ -62,6 +63,7 @@ class SDKConfig:
         return cls(
             base_url=os.getenv("NAVO_BASE_URL", cls.base_url),
             ws_url=os.getenv("NAVO_WS_URL", cls.ws_url),
+            pow_url=os.getenv("NAVO_POW_URL", cls.pow_url),
             timeout=int(os.getenv("NAVO_TIMEOUT", str(cls.timeout))),
             max_retries=int(os.getenv("NAVO_MAX_RETRIES", str(cls.max_retries))),
             debug=os.getenv("NAVO_DEBUG", "false").lower() in ("true", "1", "yes"),

@@ -19,6 +19,7 @@ from navo.util.protocols import TokenStore
 from navo.util.transport_http import HTTPTransport
 from navo.util.transport_ws import WebSocketTransport
 from navo.util.uploader import FileUploader
+from navo.captcha import solve_captcha_sync, asolve_captcha
 
 _logger = logging.getLogger("navo")
 
@@ -136,8 +137,10 @@ class Navo:
     # ======================================================================
 
     def login(self, username: str, password: str) -> "Navo":
+        captcha_token = solve_captcha_sync(self._config.pow_url)
         data = self._http.request("POST", "/api/auth/login", json_data={
             "username": username, "password": password,
+            "captchaToken": captcha_token,
         })
         self._token_store.save_token(data["token"])
         self._me = User.from_dict(data.get("user"))
@@ -145,8 +148,10 @@ class Navo:
         return self
 
     async def alogin(self, username: str, password: str) -> "Navo":
+        captcha_token = await asolve_captcha(self._config.pow_url)
         data = await self._http.arequest("POST", "/api/auth/login", json_data={
             "username": username, "password": password,
+            "captchaToken": captcha_token,
         })
         self._token_store.save_token(data["token"])
         self._me = User.from_dict(data.get("user"))
