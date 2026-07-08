@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -14,7 +15,7 @@ from urllib3.util.retry import Retry
 
 from navo.util.config import SDKConfig
 from navo.util.exceptions import AuthError, NavoError, NetworkError
-from navo.util.protocols import TokenStore
+from navo.util.domain.protocols import TokenStore
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -79,16 +80,25 @@ class HTTPTransport:
             path = f"/{path}"
         return f"{base}{path}"
 
+    def _format_error(self, status_code: int, data: Any, fallback: str) -> NavoError:
+        details: Dict[str, Any] = data if isinstance(data, dict) else {}
+        error_msg = details.get("error", fallback)
+        if status_code == 503 and details.get("maintenance"):
+            error_msg = (
+                f"{error_msg}（该账号暂时不可用，非全站维护；"
+                "请更换 config 中的 username 或联系管理员解除账号锁定）"
+            )
+        return NavoError(f"HTTP {status_code}: {error_msg}", code=status_code, details=details)
+
     def _handle_response(self, resp: requests.Response) -> Any:
         if resp.status_code == 401:
             raise AuthError("未授权：令牌无效或已过期")
         if resp.status_code >= 400:
             try:
                 data = resp.json()
-                error_msg = data.get("error", resp.text)
             except Exception:
-                error_msg = resp.text
-            raise NavoError(f"HTTP {resp.status_code}: {error_msg}", code=resp.status_code)
+                data = None
+            raise self._format_error(resp.status_code, data, resp.text)
         if resp.status_code == 204:
             return None
         return resp.json()
@@ -183,12 +193,12 @@ class HTTPTransport:
                 if resp.status == 401:
                     raise AuthError("未授权：令牌无效或已过期")
                 if resp.status >= 400:
+                    text = await resp.text()
                     try:
-                        data = await resp.json()
-                        error_msg = data.get("error", await resp.text())
+                        data = json.loads(text) if text else None
                     except Exception:
-                        error_msg = await resp.text()
-                    raise NavoError(f"HTTP {resp.status}: {error_msg}", code=resp.status)
+                        data = None
+                    raise self._format_error(resp.status, data, text)
                 if resp.status == 204:
                     return None
                 return await resp.json()

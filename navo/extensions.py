@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from navo.util.decorators import async_require_login, require_login
-from navo.util.models import (
+from navo.util.domain.models import (
     Conversation, ForwardedMessage, Message, Notification,
     Organization, StickerPack, User,
 )
 
 if TYPE_CHECKING:
-    from navo.util.transport_http import HTTPTransport
-    from navo.util.transport_ws import WebSocketTransport
+    from navo.util.transport.http import HTTPTransport
+    from navo.util.transport.ws import WebSocketTransport
 
 
 def _body(**kwargs: Any) -> Dict[str, Any]:

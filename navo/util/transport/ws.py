@@ -9,7 +9,7 @@ import websockets
 import websockets.exceptions
 
 from navo.util.config import SDKConfig
-from navo.util.events import EventEmitter
+from navo.util.domain.events import EventEmitter
 
 _logger = logging.getLogger("navo")
 

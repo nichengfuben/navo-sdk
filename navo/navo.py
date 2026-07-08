@@ -7,18 +7,14 @@ from typing import Any, Callable, Dict, List, Optional
 from navo.util.config import SDKConfig
 from navo.util.container import Container
 from navo.util.decorators import async_require_login, require_login
-from navo.util.env import EnvManager
-from navo.util.events import EventEmitter
-from navo.util.exceptions import AuthError, NavoError
-from navo.util.logging_util import setup_logging
-from navo.util.models import (
+from navo.util.domain.env import EnvManager
+from navo.util.domain.models import (
     Attachment, BootstrapData, Conversation, FriendRequest,
     Friendship, Message, User,
 )
-from navo.util.protocols import TokenStore
-from navo.util.transport_http import HTTPTransport
-from navo.util.transport_ws import WebSocketTransport
-from navo.util.uploader import FileUploader
+from navo.util.domain.protocols import TokenStore
+from navo.util.exceptions import AuthError, NavoError
+from navo.util.transport import FileUploader, HTTPTransport, WebSocketTransport, setup_logging
 from navo.captcha import solve_captcha_sync, asolve_captcha
 from navo.extensions import NavoApiMixin
 from navo.admin import NavoAdmin

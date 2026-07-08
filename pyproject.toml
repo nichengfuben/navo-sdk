@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "navo-sdk"
-version = "2.1.0"
+version = "2.1.1"
 description = "Navo IM SDK for Python - Navo 即时通讯平台 SDK"
 readme = "README.md"
 license = "MIT"

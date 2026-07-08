@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 class NavoError(Exception):
     """SDK 根异常。所有 Navo SDK 异常的公共基类，携带可选业务错误码。"""
 
-    def __init__(self, message: str, code: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        code: Optional[int] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
         self.message = message
         self.code = code
+        self.details = details or {}
         super().__init__(self.message)
 
     def __repr__(self) -> str:
