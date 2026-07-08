@@ -15,7 +15,7 @@ from urllib3.util.retry import Retry
 
 from navo.util.config import SDKConfig
 from navo.util.exceptions import AuthError, NavoError, NetworkError
-from navo.util.domain.protocols import TokenStore
+from navo.util.types.protocols import TokenStore
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

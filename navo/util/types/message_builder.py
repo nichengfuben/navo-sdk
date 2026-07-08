@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from navo.util.domain.models import Attachment
+from navo.util.types.models import Attachment
 
 
 class MessageBuilder:

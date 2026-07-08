@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from navo.util.decorators import async_require_login, require_login
-from navo.util.domain.models import (
+from navo.util.types.models import (
     Conversation, ForwardedMessage, Message, Notification,
     Organization, StickerPack, User,
 )

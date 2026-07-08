@@ -1,9 +1,9 @@
-from navo.util.config import SDKConfig
+from navo.util.config import SDKConfig, EnvManager
 from navo.util.container import Container
 from navo.util.decorators import async_require_login, auto_retry, require_login, validate_params
-from navo.util.domain import (
+from navo.util.types import (
     Attachment, BootstrapData, CallKind, CallTrackKind, ChannelRole, ClientEventType,
-    Conversation, ConversationKind, ConversationMember, EnvManager, EventEmitter,
+    Conversation, ConversationKind, ConversationMember,
     ForwardedMessage, ForwardedMessageItem, FriendRequest, Friendship, FriendshipDirection,
     FriendshipStatus, Gender, Message, MessageFormat, MessageKind, MessageReplyTo,
     MessageBuilder, Notification, Organization, PollData, PollOption, PollResult,
@@ -12,6 +12,7 @@ from navo.util.domain import (
 )
 from navo.util.exceptions import AuthError, ConfigError, NavoError, NetworkError, TimeoutError, ValidationError
 from navo.util.transport import FileUploader, HTTPTransport, WebSocketTransport, setup_logging
+from navo.util.transport.events import EventEmitter
 
 __all__ = [
     "SDKConfig", "Container", "require_login", "async_require_login", "auto_retry", "validate_params",
