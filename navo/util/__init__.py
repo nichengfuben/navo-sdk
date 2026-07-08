@@ -3,7 +3,8 @@ from navo.util.container import Container
 from navo.util.decorators import async_require_login, auto_retry, require_login, validate_params
 from navo.util.enums import (
     ChannelRole, ClientEventType, ConversationKind, FriendshipDirection,
-    FriendshipStatus, Gender, MessageKind, PresenceStatus, ServerEventType,
+    FriendshipStatus, Gender, MessageFormat, MessageKind, PresenceStatus,
+    RegisterType, CallKind, CallTrackKind, SystemRole, ServerEventType,
 )
 from navo.util.env import EnvManager
 from navo.util.events import EventEmitter
@@ -12,7 +13,9 @@ from navo.util.logging_util import setup_logging
 from navo.util.message_builder import MessageBuilder
 from navo.util.models import (
     Attachment, BootstrapData, Conversation, ConversationMember,
-    FriendRequest, Friendship, Message, Reaction, User,
+    FriendRequest, Friendship, ForwardedMessage, ForwardedMessageItem,
+    Message, MessageReplyTo, Notification, Organization, PollData,
+    PollOption, PollResult, Reaction, Sticker, StickerPack, User,
 )
 from navo.util.protocols import TokenStore
 from navo.util.uploader import FileUploader
@@ -20,11 +23,14 @@ from navo.util.uploader import FileUploader
 __all__ = [
     "SDKConfig", "Container", "require_login", "async_require_login", "auto_retry", "validate_params",
     "ChannelRole", "ClientEventType", "ConversationKind", "FriendshipDirection", "FriendshipStatus",
-    "Gender", "MessageKind", "PresenceStatus", "ServerEventType",
+    "Gender", "MessageFormat", "MessageKind", "PresenceStatus", "RegisterType",
+    "CallKind", "CallTrackKind", "SystemRole", "ServerEventType",
     "EnvManager", "EventEmitter",
     "AuthError", "ConfigError", "NavoError", "NetworkError", "TimeoutError", "ValidationError",
     "setup_logging", "MessageBuilder",
     "Attachment", "BootstrapData", "Conversation", "ConversationMember",
-    "FriendRequest", "Friendship", "Message", "Reaction", "User",
+    "FriendRequest", "Friendship", "ForwardedMessage", "ForwardedMessageItem",
+    "Message", "MessageReplyTo", "Notification", "Organization", "PollData",
+    "PollOption", "PollResult", "Reaction", "Sticker", "StickerPack", "User",
     "TokenStore", "FileUploader",
 ]

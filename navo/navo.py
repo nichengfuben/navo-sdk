@@ -20,11 +20,13 @@ from navo.util.transport_http import HTTPTransport
 from navo.util.transport_ws import WebSocketTransport
 from navo.util.uploader import FileUploader
 from navo.captcha import solve_captcha_sync, asolve_captcha
+from navo.extensions import NavoApiMixin
+from navo.admin import NavoAdmin
 
 _logger = logging.getLogger("navo")
 
 
-class Navo:
+class Navo(NavoApiMixin):
     """Navo IM SDK 主客户端。"""
 
     def __init__(
@@ -50,6 +52,7 @@ class Navo:
         self._logger = setup_logging(level=self._config.log_level, fmt=self._config.log_format)
         self._me: Optional[User] = None
         self._bootstrap: Optional[BootstrapData] = None
+        self._admin: Optional[NavoAdmin] = None
 
     @staticmethod
     def _build_config(config, base_url, ws_url, auto_refresh_token, debug):
@@ -88,6 +91,12 @@ class Navo:
     def me(self) -> Optional[User]: return self._me
     @property
     def bootstrap_data(self) -> Optional[BootstrapData]: return self._bootstrap
+
+    @property
+    def admin(self) -> NavoAdmin:
+        if self._admin is None:
+            self._admin = NavoAdmin(self)
+        return self._admin
 
     def __enter__(self): return self
     def __exit__(self, *args): self.close()
@@ -158,19 +167,39 @@ class Navo:
         self._logger.info("登录成功: %s", username)
         return self
 
-    def register(self, username: str, password: str, display_name: str) -> "Navo":
-        data = self._http.request("POST", "/api/auth/register", json_data={
+    def register(
+        self, username: str, password: str, display_name: str, **kwargs: Any,
+    ) -> "Navo":
+        body: Dict[str, Any] = {
             "username": username, "password": password, "displayName": display_name,
-        })
+        }
+        for key, api_key in (
+            ("type", "type"), ("email", "email"), ("phone", "phone"),
+            ("code", "code"), ("captcha_token", "captchaToken"),
+            ("invite_code", "inviteCode"),
+        ):
+            if kwargs.get(key) is not None:
+                body[api_key] = kwargs[key]
+        data = self._http.request("POST", "/api/auth/register", json_data=body)
         self._token_store.save_token(data["token"])
         self._me = User.from_dict(data.get("user"))
         self._logger.info("注册成功: %s", username)
         return self
 
-    async def aregister(self, username: str, password: str, display_name: str) -> "Navo":
-        data = await self._http.arequest("POST", "/api/auth/register", json_data={
+    async def aregister(
+        self, username: str, password: str, display_name: str, **kwargs: Any,
+    ) -> "Navo":
+        body: Dict[str, Any] = {
             "username": username, "password": password, "displayName": display_name,
-        })
+        }
+        for key, api_key in (
+            ("type", "type"), ("email", "email"), ("phone", "phone"),
+            ("code", "code"), ("captcha_token", "captchaToken"),
+            ("invite_code", "inviteCode"),
+        ):
+            if kwargs.get(key) is not None:
+                body[api_key] = kwargs[key]
+        data = await self._http.arequest("POST", "/api/auth/register", json_data=body)
         self._token_store.save_token(data["token"])
         self._me = User.from_dict(data.get("user"))
         self._logger.info("注册成功: %s", username)
@@ -194,7 +223,8 @@ class Navo:
 
     @require_login
     def update_profile(self, display_name=None, bio=None, gender=None,
-                       avatar_url=None, avatar_color=None, require_friend_approval=None) -> User:
+                       avatar_url=None, avatar_color=None, require_friend_approval=None,
+                       language=None) -> User:
         patch: Dict[str, Any] = {}
         if display_name is not None: patch["displayName"] = display_name
         if bio is not None: patch["bio"] = bio
@@ -202,13 +232,15 @@ class Navo:
         if avatar_url is not None: patch["avatarUrl"] = avatar_url
         if avatar_color is not None: patch["avatarColor"] = avatar_color
         if require_friend_approval is not None: patch["requireFriendApproval"] = require_friend_approval
+        if language is not None: patch["language"] = language
         data = self._http.request("PATCH", "/api/me", json_data=patch)
         self._me = User.from_dict(data)
         return self._me
 
     @async_require_login
     async def aupdate_profile(self, display_name=None, bio=None, gender=None,
-                              avatar_url=None, avatar_color=None, require_friend_approval=None) -> User:
+                              avatar_url=None, avatar_color=None, require_friend_approval=None,
+                              language=None) -> User:
         patch: Dict[str, Any] = {}
         if display_name is not None: patch["displayName"] = display_name
         if bio is not None: patch["bio"] = bio
@@ -216,22 +248,35 @@ class Navo:
         if avatar_url is not None: patch["avatarUrl"] = avatar_url
         if avatar_color is not None: patch["avatarColor"] = avatar_color
         if require_friend_approval is not None: patch["requireFriendApproval"] = require_friend_approval
+        if language is not None: patch["language"] = language
         data = await self._http.arequest("PATCH", "/api/me", json_data=patch)
         self._me = User.from_dict(data)
         return self._me
 
     @require_login
-    def change_password(self, current_password: str, new_password: str) -> bool:
-        self._http.request("POST", "/api/me/password", json_data={
+    def change_password(
+        self, current_password: str, new_password: str,
+        captcha_token: Optional[str] = None,
+    ) -> bool:
+        body: Dict[str, Any] = {
             "currentPassword": current_password, "newPassword": new_password,
-        })
+        }
+        if captcha_token is not None:
+            body["captchaToken"] = captcha_token
+        self._http.request("POST", "/api/me/password", json_data=body)
         return True
 
     @async_require_login
-    async def achange_password(self, current_password: str, new_password: str) -> bool:
-        await self._http.arequest("POST", "/api/me/password", json_data={
+    async def achange_password(
+        self, current_password: str, new_password: str,
+        captcha_token: Optional[str] = None,
+    ) -> bool:
+        body: Dict[str, Any] = {
             "currentPassword": current_password, "newPassword": new_password,
-        })
+        }
+        if captcha_token is not None:
+            body["captchaToken"] = captcha_token
+        await self._http.arequest("POST", "/api/me/password", json_data=body)
         return True
 
     @require_login
@@ -279,6 +324,7 @@ class Navo:
         params: Dict[str, Any] = {}
         if "before" in kwargs: params["before"] = kwargs["before"]
         if "since" in kwargs: params["since"] = kwargs["since"]
+        if "cursor" in kwargs: params["cursor"] = kwargs["cursor"]
         if "page" in kwargs: params["page"] = kwargs["page"]
         if "page_size" in kwargs: params["pageSize"] = kwargs["page_size"]
         if not params:
@@ -293,6 +339,7 @@ class Navo:
         params: Dict[str, Any] = {}
         if "before" in kwargs: params["before"] = kwargs["before"]
         if "since" in kwargs: params["since"] = kwargs["since"]
+        if "cursor" in kwargs: params["cursor"] = kwargs["cursor"]
         if "page" in kwargs: params["page"] = kwargs["page"]
         if "page_size" in kwargs: params["pageSize"] = kwargs["page_size"]
         if not params:
@@ -338,7 +385,8 @@ class Navo:
 
     @require_login
     def update_channel(self, channel_id: str, name=None, topic=None, announcement=None,
-                       icon=None, avatar_url=None, mute_all=None) -> Conversation:
+                       icon=None, avatar_url=None, mute_all=None,
+                       members_can_invite=None, is_private=None) -> Conversation:
         patch: Dict[str, Any] = {}
         if name is not None: patch["name"] = name
         if topic is not None: patch["topic"] = topic
@@ -346,12 +394,15 @@ class Navo:
         if icon is not None: patch["icon"] = icon
         if avatar_url is not None: patch["avatarUrl"] = avatar_url
         if mute_all is not None: patch["muteAll"] = mute_all
+        if members_can_invite is not None: patch["membersCanInvite"] = members_can_invite
+        if is_private is not None: patch["isPrivate"] = is_private
         data = self._http.request("PATCH", f"/api/channels/{channel_id}", json_data=patch)
         return Conversation.from_dict(data)
 
     @async_require_login
     async def aupdate_channel(self, channel_id: str, name=None, topic=None, announcement=None,
-                              icon=None, avatar_url=None, mute_all=None) -> Conversation:
+                              icon=None, avatar_url=None, mute_all=None,
+                              members_can_invite=None, is_private=None) -> Conversation:
         patch: Dict[str, Any] = {}
         if name is not None: patch["name"] = name
         if topic is not None: patch["topic"] = topic
@@ -359,6 +410,8 @@ class Navo:
         if icon is not None: patch["icon"] = icon
         if avatar_url is not None: patch["avatarUrl"] = avatar_url
         if mute_all is not None: patch["muteAll"] = mute_all
+        if members_can_invite is not None: patch["membersCanInvite"] = members_can_invite
+        if is_private is not None: patch["isPrivate"] = is_private
         data = await self._http.arequest("PATCH", f"/api/channels/{channel_id}", json_data=patch)
         return Conversation.from_dict(data)
 
@@ -523,12 +576,18 @@ class Navo:
     # ======================================================================
 
     @require_login
-    def upload_file(self, file_path: str) -> Attachment:
-        return self._uploader.upload(file_path)
+    def upload_file(
+        self, file_path: str, poster: Optional[str] = None,
+        e2ee_conversation_id: Optional[str] = None,
+    ) -> Attachment:
+        return self._uploader.upload(file_path, poster=poster, e2ee_conversation_id=e2ee_conversation_id)
 
     @async_require_login
-    async def aupload_file(self, file_path: str) -> Attachment:
-        return await self._uploader.aupload(file_path)
+    async def aupload_file(
+        self, file_path: str, poster: Optional[str] = None,
+        e2ee_conversation_id: Optional[str] = None,
+    ) -> Attachment:
+        return await self._uploader.aupload(file_path, poster=poster, e2ee_conversation_id=e2ee_conversation_id)
 
     # ======================================================================
     # WebSocket 消息发送
@@ -541,13 +600,25 @@ class Navo:
 
     async def ws_send_message(self, conversation_id: str, text: str = "", kind: Optional[str] = None,
                               attachments: Optional[List[Attachment]] = None, card_id: Optional[str] = None,
-                              reply_to_id: Optional[str] = None, client_id: Optional[str] = None) -> None:
-        payload: Dict[str, Any] = {"conversationId": conversation_id}
+                              reply_to_id: Optional[str] = None, client_id: Optional[str] = None,
+                              fmt: Optional[str] = None, source_conv_id: Optional[str] = None,
+                              forward_message_ids: Optional[List[str]] = None,
+                              captcha_token: Optional[str] = None, sticker_id: Optional[str] = None,
+                              scheduled_at: Optional[str] = None, e2ee: Optional[bool] = None,
+                              e2ee_session_id: Optional[str] = None) -> None:
+        payload: Dict[str, Any] = {"conversationId": conversation_id, "text": text}
         if kind: payload["kind"] = kind
-        if text: payload["text"] = text
+        if fmt: payload["format"] = fmt
         if attachments: payload["attachments"] = [a.to_dict() for a in attachments]
         if card_id: payload["cardId"] = card_id
         if reply_to_id: payload["replyToId"] = reply_to_id
+        if source_conv_id: payload["sourceConvId"] = source_conv_id
+        if forward_message_ids: payload["forwardMessageIds"] = forward_message_ids
+        if captcha_token: payload["captchaToken"] = captcha_token
+        if sticker_id: payload["stickerId"] = sticker_id
+        if scheduled_at: payload["scheduledAt"] = scheduled_at
+        if e2ee is not None: payload["e2ee"] = e2ee
+        if e2ee_session_id: payload["e2eeSessionId"] = e2ee_session_id
         event: Dict[str, Any] = {"type": "message:send", "payload": payload}
         if client_id: event["clientId"] = client_id
         await self._ws.send(event)

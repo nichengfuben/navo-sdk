@@ -129,6 +129,7 @@ class HTTPTransport:
         path: str,
         file_path: str,
         field_name: str = "file",
+        extra_fields: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """同步文件上传。"""
         url = self._build_url(path)
@@ -141,6 +142,7 @@ class HTTPTransport:
                 resp = self.session.post(
                     url,
                     files={field_name: f},
+                    data=extra_fields or None,
                     headers=merged_headers,
                     timeout=self._config.timeout * 3,
                     verify=self._config.ssl_verify,
@@ -200,6 +202,7 @@ class HTTPTransport:
         path: str,
         file_path: str,
         field_name: str = "file",
+        extra_fields: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """异步文件上传。"""
         url = self._build_url(path)
@@ -210,20 +213,22 @@ class HTTPTransport:
         timeout = aiohttp.ClientTimeout(total=self._config.timeout * 3)
         try:
             data = aiohttp.FormData()
-            data.add_field(
-                field_name,
-                open(file_path, "rb"),
-                filename=file_path.split("/")[-1].split("\\")[-1],
-            )
-            async with session.post(
-                url, data=data, headers=merged_headers, timeout=timeout, ssl=self._config.ssl_verify,
-            ) as resp:
-                if resp.status == 401:
-                    raise AuthError("未授权")
-                if resp.status >= 400:
-                    error_msg = await resp.text()
-                    raise NavoError(f"HTTP {resp.status}: {error_msg}", code=resp.status)
-                return await resp.json()
+            if extra_fields:
+                for key, value in extra_fields.items():
+                    if value is not None:
+                        data.add_field(key, str(value))
+            filename = file_path.split("/")[-1].split("\\")[-1]
+            with open(file_path, "rb") as f:
+                data.add_field(field_name, f, filename=filename)
+                async with session.post(
+                    url, data=data, headers=merged_headers, timeout=timeout, ssl=self._config.ssl_verify,
+                ) as resp:
+                    if resp.status == 401:
+                        raise AuthError("未授权")
+                    if resp.status >= 400:
+                        error_msg = await resp.text()
+                        raise NavoError(f"HTTP {resp.status}: {error_msg}", code=resp.status)
+                    return await resp.json()
         except aiohttp.ClientConnectionError as exc:
             raise NetworkError(f"连接失败: {exc}") from exc
 

@@ -8,6 +8,7 @@ import types
 from typing import Any, Callable, Dict, List, Optional
 
 from navo.navo import Navo
+from navo.admin import NavoAdmin
 from navo.util import (
     SDKConfig,
     Container,
@@ -21,8 +22,13 @@ from navo.util import (
     FriendshipDirection,
     FriendshipStatus,
     Gender,
+    MessageFormat,
     MessageKind,
     PresenceStatus,
+    RegisterType,
+    CallKind,
+    CallTrackKind,
+    SystemRole,
     ServerEventType,
     EnvManager,
     EventEmitter,
@@ -40,14 +46,21 @@ from navo.util import (
     ConversationMember,
     FriendRequest,
     Friendship,
+    ForwardedMessage,
     Message,
+    Notification,
+    Organization,
+    PollData,
+    PollResult,
     Reaction,
+    Sticker,
+    StickerPack,
     User,
     TokenStore,
     FileUploader,
 )
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __author__ = "navo-sdk"
 __license__ = "MIT"
 
@@ -304,7 +317,7 @@ _proxy_module.aquick_login = aquick_login
 
 __all__ = [
     # 核心类
-    "Navo", "quick_login", "aquick_login",
+    "Navo", "NavoAdmin", "quick_login", "aquick_login",
     # 全局管理
     "init", "ainit", "create", "acreate", "register",
     "get_instance", "get", "use",
@@ -312,15 +325,17 @@ __all__ = [
     "remove", "aremove", "destroy", "adestroy", "reset",
     # 枚举
     "ChannelRole", "ClientEventType", "ConversationKind",
-    "FriendshipDirection", "FriendshipStatus", "Gender",
-    "MessageKind", "PresenceStatus", "ServerEventType",
+    "FriendshipDirection", "FriendshipStatus", "Gender", "MessageFormat",
+    "MessageKind", "PresenceStatus", "RegisterType", "CallKind", "CallTrackKind",
+    "SystemRole", "ServerEventType",
     # 异常
     "NavoError", "AuthError", "NetworkError", "ValidationError",
     "TimeoutError", "ConfigError",
     # 数据模型
     "User", "Message", "Attachment", "Reaction",
     "BootstrapData", "Conversation", "ConversationMember",
-    "Friendship", "FriendRequest",
+    "Friendship", "FriendRequest", "ForwardedMessage", "Notification",
+    "Organization", "PollData", "PollResult", "Sticker", "StickerPack",
     # 配置
     "SDKConfig", "EnvManager",
     # 协议
