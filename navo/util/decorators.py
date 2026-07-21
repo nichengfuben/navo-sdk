@@ -43,6 +43,43 @@ def _check_login(instance: Any) -> None:
         raise AuthError("请先登录")
 
 
+
+
+def _retry_async(func, max_retries, delay, exceptions):
+    async def wrapper(*args, **kwargs):
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                return await func(*args, **kwargs)
+            except exceptions as exc:
+                last_error = exc
+                if attempt < max_retries - 1:
+                    wait = delay * (2 ** attempt)
+                    _logger.warning("重试 %s/%s，等待 %ss: %s", attempt + 1, max_retries, wait, exc)
+                    await asyncio.sleep(wait)
+        if last_error is not None:
+            raise last_error
+        raise NavoError("重试失败")
+    return wrapper
+
+
+def _retry_sync(func, max_retries, delay, exceptions):
+    def wrapper(*args, **kwargs):
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                return func(*args, **kwargs)
+            except exceptions as exc:
+                last_error = exc
+                if attempt < max_retries - 1:
+                    wait = delay * (2 ** attempt)
+                    _logger.warning("重试 %s/%s，等待 %ss: %s", attempt + 1, max_retries, wait, exc)
+                    time.sleep(wait)
+        if last_error is not None:
+            raise last_error
+        raise NavoError("重试失败")
+    return wrapper
+
 def auto_retry(
     max_retries: int = 3,
     delay: float = 1.0,
@@ -52,46 +89,8 @@ def auto_retry(
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if asyncio.iscoroutinefunction(func):
-
-            @functools.wraps(func)
-            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                last_error: Optional[Exception] = None
-                for attempt in range(max_retries):
-                    try:
-                        return await func(*args, **kwargs)
-                    except exceptions as exc:
-                        last_error = exc
-                        if attempt < max_retries - 1:
-                            wait = delay * (2 ** attempt)
-                            _logger.warning(
-                                "重试 %s/%s，等待 %ss: %s", attempt + 1, max_retries, wait, exc,
-                            )
-                            await asyncio.sleep(wait)
-                if last_error is not None:
-                    raise last_error
-                raise NavoError("重试失败")
-
-            return async_wrapper
-
-        @functools.wraps(func)
-        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            last_error: Optional[Exception] = None
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as exc:
-                    last_error = exc
-                    if attempt < max_retries - 1:
-                        wait = delay * (2 ** attempt)
-                        _logger.warning(
-                            "重试 %s/%s，等待 %ss: %s", attempt + 1, max_retries, wait, exc,
-                        )
-                        time.sleep(wait)
-            if last_error is not None:
-                raise last_error
-            raise NavoError("重试失败")
-
-        return sync_wrapper
+            return functools.wraps(func)(_retry_async(func, max_retries, delay, exceptions))
+        return functools.wraps(func)(_retry_sync(func, max_retries, delay, exceptions))
 
     return decorator
 

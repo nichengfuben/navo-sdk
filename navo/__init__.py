@@ -60,7 +60,7 @@ from navo.util import (
     FileUploader,
 )
 
-__version__ = "2.1.2"
+__version__ = "2.1.3"
 __author__ = "navo-sdk"
 __license__ = "MIT"
 

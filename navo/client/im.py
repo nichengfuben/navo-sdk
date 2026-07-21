@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from navo.navo import Navo
+from navo.client import Navo
 
 _im_client: Optional[Navo] = None
 
